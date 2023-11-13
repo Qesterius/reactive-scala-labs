@@ -5,6 +5,7 @@ import akka.event.{Logging, LoggingReceive}
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
+import java.util.Timer
 
 object CartActor {
 
@@ -29,8 +30,12 @@ class CartActor extends Actor {
   private val log       = Logging(context.system, this)
   val cartTimerDuration = 5 seconds
 
-  private def scheduleTimer: Cancellable = ???
+  private def scheduleTimer: Cancellable ={
+    import context.dispatcher // Import the execution context for scheduling
 
+    context.system.scheduler.scheduleOnce(cartTimerDuration, self, ExpireCart)
+  } 
+    
   def receive: Receive = empty 
 
   def empty: Receive ={
