@@ -44,7 +44,7 @@ class Checkout extends Actor {
     context.system.scheduler.scheduleOnce(checkoutTimerDuration, self, ExpireCheckout)
   }
 
-  def receive: Receive = selectingDelivery(scheduleTimer.start)
+  def receive: Receive = selectingDelivery(scheduleTimer)
 
   def selectingDelivery(timer: Cancellable): Receive = {
     case StartCheckout =>
