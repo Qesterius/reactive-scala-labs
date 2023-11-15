@@ -38,8 +38,11 @@ class Checkout extends Actor {
   val paymentTimerDuration  = 1 seconds
 
 
-  def scheduleTimer: Cancellable = 
+  def scheduleTimer: Cancellable = {
+    import context.dispatcher // Import the execution context for scheduling
+
     context.system.scheduler.scheduleOnce(checkoutTimerDuration, self, ExpireCheckout)
+  }
 
   def receive: Receive = selectingDelivery(scheduleTimer.start)
 
