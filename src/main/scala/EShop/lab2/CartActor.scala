@@ -47,11 +47,14 @@ class CartActor extends Actor {
     case AddItem(item) =>
       context become nonEmpty(cart.addItem(item), timer)
     case RemoveItem(item) =>
-      val newCart = cart.removeItem(item)
-      if (newCart.size == 0) context become empty
-      else context become nonEmpty(newCart, timer)
+        if (cart.contains(item)) {
+          val newCart = cart.removeItem(item)
+          if (newCart.size == 0) context become empty
+          else context become nonEmpty(newCart, timer)
+        }
     case StartCheckout =>
-      context become inCheckout(cart)
+      if(cart.size !=0)
+        context become inCheckout(cart)
     case ExpireCart =>
       context become empty
   } 
