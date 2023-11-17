@@ -1,1 +1,3 @@
 # reactive-lab
+Lukasz Zajac
+
