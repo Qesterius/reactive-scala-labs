@@ -38,6 +38,10 @@ class TypedCartActor {
       msg match {
         case AddItem(item) =>
           nonEmpty(Cart.empty.addItem(item), scheduleTimer(context))
+        case GetItems(sender) =>
+          sender ! Cart.empty
+          Behaviors.same
+        case _ => throw new Exception("Unknown message " + msg)
       }
     )
 
@@ -55,26 +59,40 @@ class TypedCartActor {
           else if(cart.size == 0) empty
           else
             Behaviors.same
-        case StartCheckout =>
+        case StartCheckout(orderManager) =>
           {
             if(cart.size != 0)
+            { 
+              val checkout = context.spawn(new TypedCheckout(context.self).start, "checkout")
+              checkout ! TypedCheckout.StartCheckout
+              orderManager ! OrderManager.ConfirmCheckoutStarted(checkout)
               inCheckout(cart)
+            }
             else
               empty
           }
         case ExpireCart =>
           empty
+        case GetItems(sender) =>
+          sender ! cart
+          Behaviors.same
+        case _ => throw new Exception("Unknown message")
       }
     })
   def inCheckout(cart: Cart): Behavior[TypedCartActor.Command] =
-    Behaviors.receive((context, msg) => {
-      msg match{
-        case ConfirmCheckoutCancelled =>
-          nonEmpty(cart, scheduleTimer(context))
-        case ConfirmCheckoutClosed =>
-          empty
-        case ExpireCart =>
-          empty
-      }
-    })
-}
+    
+      Behaviors.receive((context, msg) => {
+        msg match{
+          case ConfirmCheckoutCancelled =>
+            nonEmpty(cart, scheduleTimer(context))
+          case ConfirmCheckoutClosed =>
+            empty
+          case ExpireCart =>
+            empty
+          case _ => throw new Exception("Unknown message")
+        }
+      })
+
+      
+    
+  }
