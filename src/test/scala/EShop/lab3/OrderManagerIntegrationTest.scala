@@ -35,11 +35,11 @@ class OrderManagerIntegrationTest
     val orderManager = testKit.spawn(new OrderManager().start).ref
 
     sendMessage(orderManager, AddItem("rollerblades", _))
-    
+
     sendMessage(orderManager, Buy)
 
     sendMessage(orderManager, SelectDeliveryAndPaymentMethod("paypal", "inpost", _))
-    println("---------------------------------testOMSTART")
+
     sendMessage(orderManager, ref => Pay(ref))
   }
 

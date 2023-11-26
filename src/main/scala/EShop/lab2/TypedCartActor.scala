@@ -41,42 +41,41 @@ class TypedCartActor {
         case GetItems(sender) =>
           sender ! Cart.empty
           Behaviors.same
-        case _ => throw new Exception("Unknown message " + msg)
+        case _ => Behaviors.unhandled
       }
     )
 
   def nonEmpty(cart: Cart, timer: Cancellable): Behavior[TypedCartActor.Command] =
-    Behaviors.receive((context, msg) =>{
+    Behaviors.receive((ctx, msg) =>{
       msg match {
         case AddItem(item) =>
           nonEmpty(cart.addItem(item), timer)
         case RemoveItem(item) =>
           if (cart.contains(item)){
             val newCart = cart.removeItem(item)
-            if (newCart.size == 0) empty
-            else nonEmpty(newCart, timer)
+
+            if (newCart.size == 0) {
+              timer.cancel()
+              empty
+            }
+            else 
+              nonEmpty(newCart, timer)
           }
-          else if(cart.size == 0) empty
           else
             Behaviors.same
         case StartCheckout(orderManager) =>
           {
-            if(cart.size != 0)
-            { 
-              val checkout = context.spawn(new TypedCheckout(context.self).start, "checkout")
-              checkout ! TypedCheckout.StartCheckout
+              val checkout = ctx.spawn(new TypedCheckout(ctx.self).start, "checkout")
               orderManager ! OrderManager.ConfirmCheckoutStarted(checkout)
+              checkout ! TypedCheckout.StartCheckout
               inCheckout(cart)
-            }
-            else
-              empty
           }
         case ExpireCart =>
           empty
         case GetItems(sender) =>
           sender ! cart
           Behaviors.same
-        case _ => throw new Exception("Unknown message")
+        case _ => Behaviors.unhandled
       }
     })
   def inCheckout(cart: Cart): Behavior[TypedCartActor.Command] =
@@ -87,9 +86,7 @@ class TypedCartActor {
             nonEmpty(cart, scheduleTimer(context))
           case ConfirmCheckoutClosed =>
             empty
-          case ExpireCart =>
-            empty
-          case _ => throw new Exception("Unknown message")
+          case _ => Behaviors.unhandled
         }
       })
 

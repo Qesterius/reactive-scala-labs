@@ -26,5 +26,7 @@ class Payment(
       println("Payment actor sent message to OM back")
       
       Behaviors.same
+    case _ =>
+      Behaviors.unhandled
   }
 }

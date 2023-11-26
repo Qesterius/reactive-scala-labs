@@ -39,86 +39,76 @@ class TypedCheckout(
   val paymentTimerDuration: FiniteDuration  = 1 seconds
 
   def start: Behavior[TypedCheckout.Command] =
-
-    Behaviors.setup { context =>
-      // Schedule expiration
-      val checkoutTimer = context.scheduleOnce(checkoutTimerDuration, context.self, ExpireCheckout)
-
-      Behaviors.receiveMessage{
-      
+      Behaviors.receive{
+      (ctx, msg)=> msg match {
         case StartCheckout =>
+          val checkoutTimer = ctx.scheduleOnce(checkoutTimerDuration, ctx.self, ExpireCheckout)
           selectingDelivery(checkoutTimer)
         case CancelCheckout =>
-          checkoutTimer.cancel()
           cancelled
-        case _ => throw new Exception("Unknown message")
+        case _ => Behaviors.unhandled
       }
     }
 
   def selectingDelivery(timer: Cancellable): Behavior[TypedCheckout.Command] =
     Behaviors.receiveMessage {
-
       case SelectDeliveryMethod(method) =>
         selectingPaymentMethod(timer)
       case CancelCheckout =>
-        cartActor ! TypedCartActor.ConfirmCheckoutCancelled
+        cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
         timer.cancel()
         cancelled
       case ExpireCheckout =>
-         cartActor ! TypedCartActor.ConfirmCheckoutCancelled
+        cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
         cancelled
-      case _ => throw new Exception("Unknown message")
+      case _ => Behaviors.unhandled
     }
 
   def selectingPaymentMethod(timer: Cancellable): Behavior[TypedCheckout.Command] = 
-    Behaviors.receiveMessage {
-      case SelectPayment(payment, orderManager) =>
-        timer.cancel()
-        Behaviors.setup { context =>
-          {
-            val paymentActor = context.spawn(new Payment( payment, orderManager, context.self).start, "paymentActor")
-            orderManager ! OrderManager.ConfirmPaymentStarted(paymentActor)
-            val paymentTimer = context.scheduleOnce(paymentTimerDuration, context.self, ExpirePayment)
-            processingPayment(paymentTimer)
-          }
-        }
-      case CancelCheckout =>
-        cartActor ! TypedCartActor.ConfirmCheckoutCancelled
-        timer.cancel()
-        cancelled
-      case ExpireCheckout =>
-        cartActor ! TypedCartActor.ConfirmCheckoutCancelled
-        cancelled
-      case _ => throw new Exception("Unknown message")
+    Behaviors.receive{ 
+      (ctx,msg) => msg match { 
+        case SelectPayment(payment, orderManager) =>
+          timer.cancel()
+          val paymentActor = ctx.spawn(new Payment( payment, orderManager, ctx.self).start, "paymentActor")
+          orderManager ! OrderManager.ConfirmPaymentStarted(paymentActor)
+          val paymentTimer = ctx.scheduleOnce(paymentTimerDuration, ctx.self, ExpirePayment)
+          processingPayment(paymentTimer)
+        case CancelCheckout =>
+          cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
+          timer.cancel()
+          cancelled
+        case ExpireCheckout =>
+          cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
+          cancelled
+        case _ => Behaviors.unhandled
 
-    }
+    }}
 
 
   def processingPayment(timer: Cancellable): Behavior[TypedCheckout.Command] = 
       Behaviors.receiveMessage {
-        
           case ConfirmPaymentReceived =>
             timer.cancel()
             cartActor ! TypedCartActor.ConfirmCheckoutClosed
             closed
           case CancelCheckout =>
-            cartActor ! TypedCartActor.ConfirmCheckoutCancelled
+            cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
             timer.cancel()
             cancelled
           case ExpirePayment =>
-            cartActor ! TypedCartActor.ConfirmCheckoutCancelled
+            cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
             cancelled
-          case _ => throw new Exception("Unknown message") 
+          case _ => Behaviors.unhandled
       }
 
   def cancelled: Behavior[TypedCheckout.Command] = Behaviors.receiveMessage {
-    case _ => throw new Exception("Unknown message")
+    case _ => Behaviors.stopped
   }
 
   def closed: Behavior[TypedCheckout.Command] = Behaviors.receive { (ctx,msg)=> msg match
     {
-      case ConfirmPaymentReceived =>
-          Behaviors.same
-      case _ => throw new Exception("Unknown message "+ msg)
+      //case ConfirmPaymentReceived =>
+      //    Behaviors.same
+      case _ => Behaviors.stopped
     }}
 }
