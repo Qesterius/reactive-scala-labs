@@ -38,43 +38,58 @@ class TypedCartActor {
       msg match {
         case AddItem(item) =>
           nonEmpty(Cart.empty.addItem(item), scheduleTimer(context))
+        case GetItems(sender) =>
+          sender ! Cart.empty
+          Behaviors.same
+        case _ => Behaviors.unhandled
       }
     )
 
   def nonEmpty(cart: Cart, timer: Cancellable): Behavior[TypedCartActor.Command] =
-    Behaviors.receive((context, msg) =>{
+    Behaviors.receive((ctx, msg) =>{
       msg match {
         case AddItem(item) =>
           nonEmpty(cart.addItem(item), timer)
         case RemoveItem(item) =>
           if (cart.contains(item)){
             val newCart = cart.removeItem(item)
-            if (newCart.size == 0) empty
-            else nonEmpty(newCart, timer)
+
+            if (newCart.size == 0) {
+              timer.cancel()
+              empty
+            }
+            else 
+              nonEmpty(newCart, timer)
           }
-          else if(cart.size == 0) empty
           else
             Behaviors.same
-        case StartCheckout =>
+        case StartCheckout(orderManager) =>
           {
-            if(cart.size != 0)
+              val checkout = ctx.spawn(new TypedCheckout(ctx.self).start, "checkout")
+              orderManager ! OrderManager.ConfirmCheckoutStarted(checkout)
+              checkout ! TypedCheckout.StartCheckout
               inCheckout(cart)
-            else
-              empty
           }
         case ExpireCart =>
           empty
+        case GetItems(sender) =>
+          sender ! cart
+          Behaviors.same
+        case _ => Behaviors.unhandled
       }
     })
   def inCheckout(cart: Cart): Behavior[TypedCartActor.Command] =
-    Behaviors.receive((context, msg) => {
-      msg match{
-        case ConfirmCheckoutCancelled =>
-          nonEmpty(cart, scheduleTimer(context))
-        case ConfirmCheckoutClosed =>
-          empty
-        case ExpireCart =>
-          empty
-      }
-    })
-}
+    
+      Behaviors.receive((context, msg) => {
+        msg match{
+          case ConfirmCheckoutCancelled =>
+            nonEmpty(cart, scheduleTimer(context))
+          case ConfirmCheckoutClosed =>
+            empty
+          case _ => Behaviors.unhandled
+        }
+      })
+
+      
+    
+  }

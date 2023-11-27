@@ -18,6 +18,15 @@ class Payment(
 
   import Payment._
 
-  def start: Behavior[Payment.Command] = ???
-
+  def start: Behavior[Payment.Command] = Behaviors.receiveMessage {
+    case DoPayment =>
+      println("Payment actor received DoPayment")
+      checkout ! TypedCheckout.ConfirmPaymentReceived
+      orderManager ! OrderManager.ConfirmPaymentReceived
+      println("Payment actor sent message to OM back")
+      
+      Behaviors.same
+    case _ =>
+      Behaviors.unhandled
+  }
 }
