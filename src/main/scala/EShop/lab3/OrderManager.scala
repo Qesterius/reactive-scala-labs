@@ -105,6 +105,6 @@ class OrderManager {
   }
 
   def finished: Behavior[OrderManager.Command] = Behaviors.receiveMessage { case _ =>
-    Behaviors.stopped
+    Behaviors.same
   }
 }

@@ -78,11 +78,9 @@ class TypedCheckout(
           val paymentTimer = ctx.scheduleOnce(paymentTimerDuration, ctx.self, ExpirePayment)
           processingPayment(paymentTimer)
         case CancelCheckout =>
-          cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
           timer.cancel()
           cancelled
         case ExpireCheckout =>
-          cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
           cancelled
         case _ => Behaviors.unhandled
 
@@ -96,24 +94,24 @@ class TypedCheckout(
         cartActor ! TypedCartActor.ConfirmCheckoutClosed
         closed
       case CancelCheckout =>
-        cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
         timer.cancel()
         cancelled
       case ExpirePayment =>
-        cartActor ! TypedCartActor.ConfirmCheckoutCancelled //?
         cancelled
       case _ => Behaviors.unhandled
     }
 
-  def cancelled: Behavior[TypedCheckout.Command] = Behaviors.receiveMessage { case _ =>
-    Behaviors.stopped
-  }
-
-  def closed: Behavior[TypedCheckout.Command] = Behaviors.receive { (ctx, msg) =>
-    msg match {
-      //case ConfirmPaymentReceived =>
-      //    Behaviors.same
-      case _ => Behaviors.stopped
+  def cancelled: Behavior[TypedCheckout.Command] =
+    Behaviors.receive { (_, message) =>
+      message match {
+        case _ => Behaviors.stopped
+      }
     }
-  }
+
+  def closed: Behavior[TypedCheckout.Command] =
+    Behaviors.receive { (_, message) =>
+      message match {
+        case _ => Behaviors.stopped
+      }
+    }
 }

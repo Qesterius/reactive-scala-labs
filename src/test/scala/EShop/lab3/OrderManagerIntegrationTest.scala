@@ -13,6 +13,8 @@ import akka.pattern.ask
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import EShop.lab2.TypedCheckout
+import EShop.lab2.TypedCartActor
 
 class OrderManagerIntegrationTest
   extends ScalaTestWithActorTestKit
@@ -22,6 +24,7 @@ class OrderManagerIntegrationTest
   with ScalaFutures {
 
   import OrderManager._
+
 
   override implicit val timeout: Timeout = 1.second
 
@@ -37,14 +40,20 @@ class OrderManagerIntegrationTest
 
   it should "supervise whole order process" in {
     val orderManager = testKit.spawn(new OrderManager().start).ref
+    val senderProbe = testKit.createTestProbe[OrderManager.Ack]()
 
-    sendMessage(orderManager, AddItem("rollerblades", _))
 
-    sendMessage(orderManager, Buy)
+    orderManager !  AddItem("rollerblades", senderProbe.ref)
+    senderProbe.expectMessage(Done)
 
-    sendMessage(orderManager, SelectDeliveryAndPaymentMethod("paypal", "inpost", _))
+    orderManager ! Buy(senderProbe.ref)
+    senderProbe.expectMessage(Done)
 
-    sendMessage(orderManager, ref => Pay(ref))
+    orderManager ! SelectDeliveryAndPaymentMethod("paypal", "inpost", senderProbe.ref)
+    senderProbe.expectMessage(Done)
+
+    orderManager ! Pay(senderProbe.ref)
+    senderProbe.expectMessage(Done)
   }
 
 }
