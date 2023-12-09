@@ -26,19 +26,21 @@ class OrderManager {
 
   def start: Behavior[OrderManager.Command] = uninitialized
 
-  def uninitialized: Behavior[OrderManager.Command] = 
-    Behaviors.receive{ 
-      (ctx, msg)=> msg match{
+  def uninitialized: Behavior[OrderManager.Command] =
+    Behaviors.receive { (ctx, msg) =>
+      msg match {
         case AddItem(id, sender) =>
-              val cartActor = ctx.spawn(new TypedCartActor().start, "cartActor")
-              cartActor ! TypedCartActor.AddItem(id)
-              sender ! Done
-              open(cartActor)
+          val cartActor = ctx.spawn(new TypedCartActor().start, "cartActor")
+          cartActor ! TypedCartActor.AddItem(id)
+          sender ! Done
+          open(cartActor)
         case _ => Behaviors.same
-    }}
+      }
+    }
 
-  def open(cartActor: ActorRef[TypedCartActor.Command]): Behavior[OrderManager.Command] = 
-    Behaviors.receive{(ctx, msg) => msg match{
+  def open(cartActor: ActorRef[TypedCartActor.Command]): Behavior[OrderManager.Command] =
+    Behaviors.receive { (ctx, msg) =>
+      msg match {
         case AddItem(id, sender) =>
           cartActor ! TypedCartActor.AddItem(id)
           sender ! Done
@@ -51,37 +53,41 @@ class OrderManager {
           cartActor ! TypedCartActor.StartCheckout(ctx.self)
           inCheckout(cartActor, sender)
         case _ => Behaviors.unhandled
-    }}
-
+      }
+    }
 
   def inCheckout(
     cartActorRef: ActorRef[TypedCartActor.Command],
     senderRef: ActorRef[Ack]
-  ): Behavior[OrderManager.Command] = 
-    Behaviors.receiveMessage{
-        case ConfirmCheckoutStarted(checkoutRef) =>
-          senderRef ! Done
-          inCheckout(checkoutRef)
-        case _ => Behaviors.unhandled
+  ): Behavior[OrderManager.Command] =
+    Behaviors.receiveMessage {
+      case ConfirmCheckoutStarted(checkoutRef) =>
+        senderRef ! Done
+        inCheckout(checkoutRef)
+      case _ => Behaviors.unhandled
     }
 
   def inCheckout(checkoutActorRef: ActorRef[TypedCheckout.Command]): Behavior[OrderManager.Command] =
-    Behaviors.receive{ (ctx, msg) => msg match{
-      case SelectDeliveryAndPaymentMethod(delivery, payment, sender) =>
+    Behaviors.receive { (ctx, msg) =>
+      msg match {
+        case SelectDeliveryAndPaymentMethod(delivery, payment, sender) =>
           checkoutActorRef ! TypedCheckout.SelectDeliveryMethod(delivery)
           checkoutActorRef ! TypedCheckout.SelectPayment(payment, ctx.self)
           inPayment(sender)
-      case _ => Behaviors.unhandled
-    }}
+        case _ => Behaviors.unhandled
+      }
+    }
 
-  def inPayment(senderRef: ActorRef[Ack]): Behavior[OrderManager.Command] = 
-    Behaviors.receive {(ctx, msg) => msg match{
-      case ConfirmPaymentStarted(paymentRef) =>
-        System.out.println("ConfirmPaymentStarted"+paymentRef.path.name)
-        senderRef ! Done
-        inPayment(paymentRef, senderRef)
-      case _ => Behaviors.unhandled
-    }}
+  def inPayment(senderRef: ActorRef[Ack]): Behavior[OrderManager.Command] =
+    Behaviors.receive { (ctx, msg) =>
+      msg match {
+        case ConfirmPaymentStarted(paymentRef) =>
+          System.out.println("ConfirmPaymentStarted" + paymentRef.path.name)
+          senderRef ! Done
+          inPayment(paymentRef, senderRef)
+        case _ => Behaviors.unhandled
+      }
+    }
 
   def inPayment(
     paymentActorRef: ActorRef[Payment.Command],
@@ -98,7 +104,7 @@ class OrderManager {
     case _ => Behaviors.unhandled
   }
 
-  def finished: Behavior[OrderManager.Command] = Behaviors.receiveMessage {
-    case _ => Behaviors.stopped
+  def finished: Behavior[OrderManager.Command] = Behaviors.receiveMessage { case _ =>
+    Behaviors.stopped
   }
 }

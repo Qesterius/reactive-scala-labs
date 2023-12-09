@@ -28,7 +28,7 @@ class Payment(
       checkout ! TypedCheckout.ConfirmPaymentReceived
       orderManager ! OrderManager.ConfirmPaymentReceived
       println("Payment actor sent message to OM back")
-      
+
       Behaviors.same
     case _ =>
       Behaviors.unhandled
