@@ -158,4 +158,150 @@ class PersistentCartActorTest
     resultAdd2.hasNoEvents shouldBe true
     resultAdd2.state shouldBe Empty
   }
+
+  // all of the above with restarts
+
+   it should "change state after adding first item to the cart and restart" in {
+    eventSourcedTestKit.restart()
+    val result = eventSourcedTestKit.runCommand(AddItem("Hamlet"))
+
+    eventSourcedTestKit.restart()
+
+    result.event.isInstanceOf[ItemAdded] shouldBe true
+    result.state.isInstanceOf[NonEmpty] shouldBe true
+  }
+
+  it should "be empty after adding a new item and removing it after that and restarting" in {
+    val resultAdd = eventSourcedTestKit.runCommand(AddItem("Storm"))
+    eventSourcedTestKit.restart()
+
+    resultAdd.event.isInstanceOf[ItemAdded] shouldBe true
+    resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
+
+    val resultRemove = eventSourcedTestKit.runCommand(RemoveItem("Storm"))
+
+    resultRemove.event shouldBe CartEmptied
+    resultRemove.state shouldBe Empty
+  }
+  
+  it should "contain one item after adding new item and removing not existing one and restarting alog the way" in {
+    val resultAdd = eventSourcedTestKit.runCommand(AddItem("Romeo & Juliet"))
+    eventSourcedTestKit.restart()
+
+    resultAdd.event.isInstanceOf[ItemAdded] shouldBe true
+    resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
+
+
+    val resultRemove = eventSourcedTestKit.runCommand(RemoveItem("Macbeth"))
+    eventSourcedTestKit.restart()
+
+    resultRemove.hasNoEvents shouldBe true
+    resultRemove.state.isInstanceOf[NonEmpty] shouldBe true
+  }
+
+  it should "change state to inCheckout from nonEmpty and restarting alog the way" in {
+    val resultAdd = eventSourcedTestKit.runCommand(AddItem("Romeo & Juliet"))
+    eventSourcedTestKit.restart()
+
+    resultAdd.event.isInstanceOf[ItemAdded] shouldBe true
+    resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
+
+    val resultStartCheckout =
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
+    eventSourcedTestKit.restart()
+
+    resultStartCheckout.event.isInstanceOf[CheckoutStarted] shouldBe true
+    resultStartCheckout.state.isInstanceOf[InCheckout] shouldBe true
+  }
+
+  it should "cancel checkout properly and restarting alog the way" in {
+    val resultAdd = eventSourcedTestKit.runCommand(AddItem("Cymbelin"))
+    eventSourcedTestKit.restart()
+
+    resultAdd.event.isInstanceOf[ItemAdded] shouldBe true
+    resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
+
+    val resultStartCheckout =
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
+    eventSourcedTestKit.restart()
+
+    resultStartCheckout.event.isInstanceOf[CheckoutStarted] shouldBe true
+    resultStartCheckout.state.isInstanceOf[InCheckout] shouldBe true
+
+    val resultCancelCheckout =
+      eventSourcedTestKit.runCommand(ConfirmCheckoutCancelled)
+    eventSourcedTestKit.restart()
+
+    resultCancelCheckout.event shouldBe CheckoutCancelled
+    resultCancelCheckout.state.isInstanceOf[NonEmpty] shouldBe true
+  }
+
+  it should "close checkout properly and restarting alog the way" in {
+    val resultAdd = eventSourcedTestKit.runCommand(AddItem("Cymbelin"))
+    eventSourcedTestKit.restart()
+
+    resultAdd.event.isInstanceOf[ItemAdded] shouldBe true
+    resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
+
+    val resultStartCheckout =
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
+    eventSourcedTestKit.restart()
+
+    resultStartCheckout.event.isInstanceOf[CheckoutStarted] shouldBe true
+    resultStartCheckout.state.isInstanceOf[InCheckout] shouldBe true
+
+    val resultCloseCheckout =
+      eventSourcedTestKit.runCommand(ConfirmCheckoutClosed)
+    eventSourcedTestKit.restart()
+
+    resultCloseCheckout.event shouldBe CheckoutClosed
+    resultCloseCheckout.state shouldBe Empty
+  }
+
+  it should "not add items when in checkout and restarting alog the way" in {
+    val resultAdd = eventSourcedTestKit.runCommand(AddItem("Cymbelin"))
+    eventSourcedTestKit.restart()
+
+    resultAdd.event.isInstanceOf[ItemAdded] shouldBe true
+    resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
+
+    val resultStartCheckout =
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
+    eventSourcedTestKit.restart()
+
+    resultStartCheckout.event.isInstanceOf[CheckoutStarted] shouldBe true
+    resultStartCheckout.state.isInstanceOf[InCheckout] shouldBe true
+
+    val resultAdd2 = eventSourcedTestKit.runCommand(AddItem("Henryk V"))
+    eventSourcedTestKit.restart()
+
+    resultAdd2.hasNoEvents shouldBe true
+    resultAdd2.state.isInstanceOf[InCheckout] shouldBe true
+  }
+
+  it should "not change state to inCheckout from emptyand restarting alog the way" in {
+    val resultStartCheckout =
+      eventSourcedTestKit.runCommand(StartCheckout(testKit.createTestProbe[OrderManager.Command]().ref))
+    eventSourcedTestKit.restart()
+
+    resultStartCheckout.hasNoEvents shouldBe true
+    resultStartCheckout.state shouldBe Empty
+  }
+
+  it should "expire and back to empty state after given time and restarting alog the way" in {
+    val resultAdd = eventSourcedTestKit.runCommand(AddItem("King Lear"))
+    eventSourcedTestKit.restart()
+
+    resultAdd.event.isInstanceOf[ItemAdded] shouldBe true
+    resultAdd.state.isInstanceOf[NonEmpty] shouldBe true
+    eventSourcedTestKit.restart()
+
+    Thread.sleep(1500)
+
+    val resultAdd2 = eventSourcedTestKit.runCommand(RemoveItem("King Lear"))
+    eventSourcedTestKit.restart()
+
+    resultAdd2.hasNoEvents shouldBe true
+    resultAdd2.state shouldBe Empty
+  }
 }

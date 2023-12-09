@@ -21,7 +21,7 @@ class TypedCheckoutTest
 
   it should "Send close confirmation to cart" in {
     val probeCart = testKit.createTestProbe[TypedCartActor.Command]()
-    val probeOM = testKit.createTestProbe[OrderManager.Command]()
+    val probeOM   = testKit.createTestProbe[OrderManager.Command]()
 
     val checkout = testKit.spawn(new TypedCheckout(probeCart.ref).start)
     checkout ! StartCheckout
@@ -30,7 +30,7 @@ class TypedCheckoutTest
     probeOM.expectMessageType[OrderManager.ConfirmPaymentStarted]
     checkout ! ConfirmPaymentReceived
     probeCart.expectMessage(TypedCartActor.ConfirmCheckoutClosed)
-    
+
   }
 
 }
