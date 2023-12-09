@@ -247,8 +247,7 @@ class PersistentCheckoutTest
 
     resultSelectDelivery.event.isInstanceOf[DeliveryMethodSelected] shouldBe true
 
-    system.terminate()
-
+    eventSourcedTestKit.restart()
 
     val resultSelectPayment = eventSourcedTestKit.runCommand(SelectPayment(paymentMethod, orderManagerProbe.ref))
 
