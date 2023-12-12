@@ -7,6 +7,7 @@ import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes}
 
 import scala.util.{Failure, Success}
 import akka.http.scaladsl.settings.ConnectionPoolSettings
+import scala.concurrent.duration.Duration
 
 object PaymentService {
 
@@ -27,7 +28,7 @@ object PaymentService {
     implicit val ec = context.executionContext
 
     val uri = getURI(method)
-   
+
     //set timeout to 1 second
     val connectionPoolSettings = ConnectionPoolSettings(system)
       .withResponseEntitySubscriptionTimeout(Duration(1, "second"))
@@ -41,7 +42,7 @@ object PaymentService {
               Behaviors.stopped
             case StatusCodes.RequestTimeout =>
               throw PaymentServerError()
-            case _              => throw PaymentServerError()
+            case _ => throw PaymentServerError()
           }
         case Failure(_) => throw PaymentClientError()
       }
