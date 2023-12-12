@@ -41,8 +41,11 @@ object Payment {
                 : ActorRef[PaymentService.Response] =
                 context.messageAdapter(WrappedPaymentServiceResponse(_))
 
-              val paymentService = context.spawnAnonymous(
-                PaymentService(method, paymentServiceResponseWrapper))
+              val paymentService = context.spawn(
+              Behaviors.supervise(PaymentService(method, paymentServiceResponseWrapper))
+                .onFailure(restartStrategy),
+              "PaymentService"
+              )
               context.watch(paymentService)
               Behaviors.same
 
