@@ -10,12 +10,11 @@ import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 
 import scala.concurrent.duration._
 
-
 /*
 (15 points) Cart persistence. Implement cart persistence using the event sourcing pattern. Ensure correct timer recovery.
 (15 points) Implement state persistence for PersistentCheckout and test the scenario where during the checkout operation, the app is stopped (e.g. via system.terminate). After the restart, the state should be correctly restored (together with timers).
 (10 points) Write additional tests for PersistentCartActor (in particular, take into account actor state recovery).
-*/
+ */
 
 class PersistentCartActor {
 
@@ -23,18 +22,21 @@ class PersistentCartActor {
 
   val cartTimerDuration: FiniteDuration = 5.seconds
 
-  private def scheduleTimer(context: ActorContext[Command]): Cancellable = context.scheduleOnce(cartTimerDuration, context.self, ExpireCart)
+  private def scheduleTimer(context: ActorContext[Command]): Cancellable =
+    context.scheduleOnce(cartTimerDuration, context.self, ExpireCart)
 
-  def apply(persistenceId: PersistenceId): Behavior[Command] = Behaviors.setup { context =>
-    EventSourcedBehavior[Command, Event, State](
-      persistenceId,
-      Empty,
-      commandHandler(context),
-      eventHandler(context)
-    )
+  def apply(persistenceId: PersistenceId): Behavior[Command] = Behaviors.setup {
+    context =>
+      EventSourcedBehavior[Command, Event, State](
+        persistenceId,
+        Empty,
+        commandHandler(context),
+        eventHandler(context)
+      )
   }
 
-  def commandHandler(context: ActorContext[Command]): (State, Command) => Effect[Event, State] = (state, command) => {
+  def commandHandler(context: ActorContext[Command])
+    : (State, Command) => Effect[Event, State] = (state, command) => {
     state match {
       case Empty =>
         command match {
@@ -47,7 +49,7 @@ class PersistentCartActor {
             Effect.unhandled
           case _ =>
             Effect.unhandled
-         }
+        }
 
       case NonEmpty(cart, _) =>
         command match {
@@ -58,14 +60,14 @@ class PersistentCartActor {
             Effect.none
           case RemoveItem(item) =>
             if (cart.contains(item)) {
-              if (cart.size == 1) Effect.persist( CartEmptied)
+              if (cart.size == 1) Effect.persist(CartEmptied)
               else Effect.persist(ItemRemoved(item))
-            } 
-            else Effect.none
+            } else Effect.none
           case ExpireCart =>
             Effect.persist(CartExpired)
           case StartCheckout(orderManagerRef) =>
-            val checkoutActor = context.spawn(new TypedCheckout(context.self).start, "checkoutActor")
+            val checkoutActor = context
+              .spawn(new TypedCheckout(context.self).start, "checkoutActor")
             orderManagerRef ! OrderManager.ConfirmCheckoutStarted(checkoutActor)
             Effect.persist(CheckoutStarted(checkoutActor))
           case _ =>
@@ -83,9 +85,9 @@ class PersistentCartActor {
             Effect.none
           case ExpireCart =>
             Effect.persist(CartExpired)
-          case ConfirmCheckoutCancelled => 
+          case ConfirmCheckoutCancelled =>
             Effect.persist(CheckoutCancelled)
-          case ConfirmCheckoutClosed => 
+          case ConfirmCheckoutClosed =>
             Effect.persist(CheckoutClosed)
           case _ =>
             Effect.unhandled
@@ -93,15 +95,18 @@ class PersistentCartActor {
     }
   }
 
-  def eventHandler(context: ActorContext[Command]): (State, Event) => State = (state, event) => {
-    event match {
-      case CheckoutStarted(_)        => InCheckout(state.cart)
-      case ItemAdded(item)           => NonEmpty(state.cart.addItem(item), scheduleTimer(context))
-      case ItemRemoved(item)         => NonEmpty(state.cart.removeItem(item), scheduleTimer(context))
-      case CartEmptied | CartExpired => Empty
-      case CheckoutClosed            => Empty
-      case CheckoutCancelled         => NonEmpty(state.cart, scheduleTimer(context))
+  def eventHandler(context: ActorContext[Command]): (State, Event) => State =
+    (state, event) => {
+      event match {
+        case CheckoutStarted(_) => InCheckout(state.cart)
+        case ItemAdded(item) =>
+          NonEmpty(state.cart.addItem(item), scheduleTimer(context))
+        case ItemRemoved(item) =>
+          NonEmpty(state.cart.removeItem(item), scheduleTimer(context))
+        case CartEmptied | CartExpired => Empty
+        case CheckoutClosed            => Empty
+        case CheckoutCancelled         => NonEmpty(state.cart, scheduleTimer(context))
+      }
     }
-  }
 
 }
