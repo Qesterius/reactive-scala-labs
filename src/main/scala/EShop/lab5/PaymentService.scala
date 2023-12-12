@@ -26,29 +26,30 @@ object PaymentService {
   ): Behavior[HttpResponse] = Behaviors.setup { context =>
     implicit val system = context.system
     implicit val ec = context.executionContext
-
+    
+    val http = Http(context.system)
     val uri = getURI(method)
 
-    //set timeout to 1 second
-    val connectionPoolSettings = ConnectionPoolSettings(system)
-      .withResponseEntitySubscriptionTimeout(Duration(1, "second"))
-    Http()
-      .singleRequest(HttpRequest(uri = uri), settings = connectionPoolSettings)
-      .onComplete {
-        case Success(response) =>
-          response.status match {
-            case StatusCodes.OK =>
-              payment ! PaymentSucceeded
-              Behaviors.stopped
-            case StatusCodes.RequestTimeout =>
-              throw PaymentServerError()
-            case _ => throw PaymentServerError()
-          }
-        case Failure(_) => throw PaymentClientError()
-      }
+    val result = http
+      .singleRequest(HttpRequest(uri = uri))
 
-    Behaviors.empty
-  }
+    context.pipeToSelf(result) {
+      case Success(value) => value
+      case Failure(e)     => throw e
+    }
+
+    Behaviors.receiveMessage {
+      case resp @ HttpResponse(StatusCodes.OK, _, _, _) =>
+        payment ! PaymentSucceeded
+        Behaviors.same
+      case resp @ HttpResponse(code, _, _, _) =>
+        code match {
+          case StatusCodes.RequestTimeout => throw PaymentServerError()
+          case _                          => throw PaymentClientError()
+        }
+      }
+   }
+
 
   // remember running PymentServiceServer() before trying payu based payments
   private def getURI(method: String) = method match {

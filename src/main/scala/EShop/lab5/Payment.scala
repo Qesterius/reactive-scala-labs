@@ -49,7 +49,7 @@ object Payment {
             case WrappedPaymentServiceResponse(PaymentSucceeded) =>
               orderManager ! OrderManager.ConfirmPaymentReceived
               checkout ! TypedCheckout.ConfirmPaymentReceived
-              Behaviors.stopped
+              Behaviors.same
         }
       )
       .receiveSignal {
